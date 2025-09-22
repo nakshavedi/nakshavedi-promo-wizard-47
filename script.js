@@ -8,6 +8,12 @@ document.addEventListener('DOMContentLoaded', function() {
     
     // Smooth scrolling for all internal links
     initializeSmoothScrolling();
+    
+    // Initialize animations
+    initializeAnimations();
+    
+    // Initialize form accessibility
+    addFormAccessibility();
 });
 
 // Header scroll effect
@@ -98,6 +104,12 @@ function submitForm(data) {
     // In a real application, you would send this data to your server
     console.log('Form data:', data);
     
+    // Show loading state
+    const submitButton = document.querySelector('#contactForm button[type="submit"]');
+    const originalText = submitButton.textContent;
+    submitButton.textContent = 'Sending...';
+    submitButton.disabled = true;
+    
     // Simulate API call delay
     setTimeout(() => {
         // Show success message
@@ -105,7 +117,11 @@ function submitForm(data) {
         
         // Reset form
         document.getElementById('contactForm').reset();
-    }, 1000);
+        
+        // Reset button
+        submitButton.textContent = originalText;
+        submitButton.disabled = false;
+    }, 1500);
 }
 
 // Toast notification system
@@ -178,7 +194,7 @@ function updateCurrentYear() {
     }
 }
 
-// Intersection Observer for animations (optional enhancement)
+// Intersection Observer for animations
 function initializeAnimations() {
     if ('IntersectionObserver' in window) {
         const observerOptions = {
@@ -190,18 +206,75 @@ function initializeAnimations() {
             entries.forEach(entry => {
                 if (entry.isIntersecting) {
                     entry.target.classList.add('animate-in');
+                    
+                    // Add staggered animation for service cards
+                    if (entry.target.classList.contains('service-card')) {
+                        const cards = document.querySelectorAll('.service-card');
+                        cards.forEach((card, index) => {
+                            setTimeout(() => {
+                                card.style.opacity = '1';
+                                card.style.transform = 'translateY(0)';
+                            }, index * 100);
+                        });
+                    }
+                    
+                    // Add counter animation for stat cards
+                    if (entry.target.classList.contains('stat-card')) {
+                        animateCounter(entry.target.querySelector('.stat-number'));
+                    }
                 }
             });
         }, observerOptions);
         
         // Observe elements that should animate
         const animateElements = document.querySelectorAll('.service-card, .stat-card, .info-card');
-        animateElements.forEach(el => observer.observe(el));
+        animateElements.forEach(el => {
+            // Set initial state for service cards
+            if (el.classList.contains('service-card')) {
+                el.style.opacity = '0';
+                el.style.transform = 'translateY(20px)';
+                el.style.transition = 'opacity 0.6s ease, transform 0.6s ease';
+            }
+            observer.observe(el);
+        });
     }
 }
 
-// Call animation initialization after DOM is loaded
-document.addEventListener('DOMContentLoaded', initializeAnimations);
+// Animate counter numbers
+function animateCounter(element) {
+    if (!element || element.dataset.animated) return;
+    
+    const target = element.textContent;
+    const isPercentage = target.includes('%');
+    const isPlus = target.includes('+');
+    const numericValue = parseInt(target.replace(/\D/g, ''));
+    
+    let current = 0;
+    const increment = numericValue / 30; // 30 steps
+    const duration = 1500; // 1.5 seconds
+    const stepTime = duration / 30;
+    
+    element.dataset.animated = 'true';
+    
+    const timer = setInterval(() => {
+        current += increment;
+        if (current >= numericValue) {
+            current = numericValue;
+            clearInterval(timer);
+        }
+        
+        let displayValue = Math.floor(current);
+        if (isPercentage && isPlus) {
+            element.textContent = displayValue + '-' + Math.floor(displayValue * 1.16) + '%';
+        } else if (isPlus) {
+            element.textContent = displayValue + '+';
+        } else if (isPercentage) {
+            element.textContent = displayValue + '%';
+        } else {
+            element.textContent = displayValue;
+        }
+    }, stepTime);
+}
 
 // Utility functions
 function debounce(func, wait) {
@@ -230,11 +303,72 @@ function toggleMobileMenu() {
     nav.classList.toggle('mobile-open');
 }
 
+// Keyboard navigation support
+document.addEventListener('keydown', function(e) {
+    // Handle Escape key to close any open modals/menus
+    if (e.key === 'Escape') {
+        const toast = document.getElementById('toast');
+        if (toast.classList.contains('show')) {
+            toast.classList.remove('show');
+        }
+    }
+    
+    // Handle Enter key on nav buttons
+    if (e.key === 'Enter' && e.target.classList.contains('nav-link')) {
+        e.target.click();
+    }
+});
+
+// Form accessibility improvements
+function addFormAccessibility() {
+    const form = document.getElementById('contactForm');
+    if (!form) return;
+    
+    const inputs = form.querySelectorAll('input, textarea');
+    inputs.forEach(input => {
+        // Add aria-required for required fields
+        if (input.hasAttribute('required')) {
+            input.setAttribute('aria-required', 'true');
+        }
+        
+        // Add aria-describedby for validation messages
+        input.addEventListener('invalid', function(e) {
+            const errorId = this.id + '-error';
+            let errorMsg = this.parentNode.querySelector('.error-message');
+            if (!errorMsg) {
+                errorMsg = document.createElement('div');
+                errorMsg.className = 'error-message';
+                errorMsg.id = errorId;
+                errorMsg.style.color = 'hsl(0, 84.2%, 60.2%)';
+                errorMsg.style.fontSize = '0.875rem';
+                errorMsg.style.marginTop = '0.25rem';
+                this.parentNode.appendChild(errorMsg);
+            }
+            
+            errorMsg.textContent = this.validationMessage;
+            this.setAttribute('aria-describedby', errorId);
+            this.style.borderColor = 'hsl(0, 84.2%, 60.2%)';
+        });
+        
+        input.addEventListener('input', function() {
+            if (this.validity.valid) {
+                const errorMsg = this.parentNode.querySelector('.error-message');
+                if (errorMsg) {
+                    errorMsg.remove();
+                }
+                this.removeAttribute('aria-describedby');
+                this.style.borderColor = '';
+            }
+        });
+    });
+}
+
 // Export functions for potential external use
 if (typeof module !== 'undefined' && module.exports) {
     module.exports = {
         scrollToSection,
         showToast,
-        initializeAnimations
+        initializeAnimations,
+        animateCounter
     };
 }
