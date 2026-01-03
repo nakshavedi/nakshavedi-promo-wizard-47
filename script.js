@@ -242,6 +242,7 @@ function initializeAnimations() {
 
 // Animate counter numbers
 function animateCounter(element) {
+    return;
     if (!element || element.dataset.animated) return;
     
     const target = element.textContent;
